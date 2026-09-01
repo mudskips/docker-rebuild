@@ -17,20 +17,7 @@ def _get_container_path(container_id, container_dir, *subdir_names):
 
 
 def create_container_root(image_name, image_dir, container_id, container_dir):
-    """Create a container root by extracting an image into a new directory
-
-    Usage:
-    new_root = create_container_root(
-        image_name, image_dir, container_id, container_dir)
-
-    @param image_name: the image name to extract
-    @param image_dir: the directory to lookup image tarballs in
-    @param container_id: the unique container id
-    @param container_dir: the base directory of newly generated container
-                          directories
-    @retrun: new container root directory
-    @rtype: str
-    """
+    """Create a container root by extracting an image into a new directory"""
     image_path = _get_image_path(image_name, image_dir)
     container_root = _get_container_path(container_id, container_dir, 'rootfs')
 
@@ -56,6 +43,14 @@ def cli():
 def contain(command, image_name, image_dir, container_id, container_dir):
     new_root = create_container_root(image_name, image_dir, container_id, container_dir)
     linux.mount('proc', os.path.join(new_root, 'proc'), 'proc', 0, '')
+    linux.mount('sysfs', os.path.join(new_root, "sys"), 'sysfs', 0, '')
+    linux.mount('tmpfs', os.path.join(new_root, 'dev'), 'tmpfs', linux.MS_NOSUID | linux.MS_STRICTATIME, 'mode=755')
+    devpts_path = os.path.join(new_root, 'dev', 'pts')
+    os.makedirs(devpts_path)
+    linux.mount('devpts', devpts_path, 'devpts', 0, '')
+    os.symlink('/proc/self/fd/0', new_root + '/dev/stdin')
+    os.symlink('/proc/self/fd/1', new_root + '/dev/stdout')
+    os.symlink('/proc/self/fd/2', new_root + '/dev/stderr')
     os.chroot(new_root)
     os.chdir("/")
     print(f'new_root created @{new_root}')
@@ -65,8 +60,8 @@ def contain(command, image_name, image_dir, container_id, container_dir):
 
 @cli.command(context_settings=dict(ignore_unknown_options=True,))
 @click.option('--image-name', '-i', help='Image name', default='ubuntu')
-@click.option('--image-dir', '--idir', help='Images directory', default='/workshop/images')
-@click.option('--container-dir','--cdir' , help='Containers directory', default='/workshop/containers')
+@click.option('--image-dir', '--idr', help='Images directory', default='/workshop/images')
+@click.option('--container-dir','--cdr' , help='Containers directory', default='/workshop/containers')
 @click.argument('Command', required=True, nargs=-1)
 def run(image_name, image_dir, container_dir, command):
     container_id = str(uuid.uuid4())
