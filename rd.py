@@ -1,10 +1,9 @@
 import os
 import tarfile
 import uuid
-
+import stat
 import click
 import traceback
-
 import linux
 
 
@@ -51,6 +50,9 @@ def contain(command, image_name, image_dir, container_id, container_dir):
     linux.mount('proc', os.path.join(new_root, 'proc'), 'proc', 0, '')
     linux.mount('sysfs', os.path.join(new_root, "sys"), 'sysfs', 0, '')
     linux.mount('tmpfs', os.path.join(new_root, 'dev'), 'tmpfs', linux.MS_NOSUID | linux.MS_STRICTATIME, 'mode=755')
+    devices = [('null', 1, 3), ('zero', 1, 5), ('random', 1, 8), ('urandom', 1, 9)]
+    for device, major, minor in devices:
+        os.mknod(os.path.join(new_root, 'dev', device), 0o666 | stat.S_IFCHR, os.makedev(major, minor))
     devpts_path = os.path.join(new_root, 'dev', 'pts')
     os.makedirs(devpts_path)
     linux.mount('devpts', devpts_path, 'devpts', 0, '')
