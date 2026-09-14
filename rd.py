@@ -29,7 +29,7 @@ def create_container_root(image_name, image_dir, container_id, container_dir):
         # Fun fact: tar files may contain *nix devices! *facepalm*
         members = [m for m in t.getmembers()
                    if m.type not in (tarfile.CHRTYPE, tarfile.BLKTYPE)]
-        t.extractall(container_root, members=members)
+        t.extractall(container_root, members=members, filter='tar')
 
     return container_root
 
