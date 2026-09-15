@@ -24,7 +24,6 @@ def create_container_root(image_name, image_dir, container_id, container_dir):
 
     if not os.path.exists(container_root):
         os.makedirs(container_root)
-
     with tarfile.open(image_path) as t:
         # Fun fact: tar files may contain *nix devices! *facepalm*
         members = [m for m in t.getmembers()
@@ -59,8 +58,12 @@ def contain(command, image_name, image_dir, container_id, container_dir):
     os.symlink('/proc/self/fd/0', new_root + '/dev/stdin')
     os.symlink('/proc/self/fd/1', new_root + '/dev/stdout')
     os.symlink('/proc/self/fd/2', new_root + '/dev/stderr')
-    os.chroot(new_root)
+    old_root_add = os.path.join(new_root, "old_root")
+    os.makedirs(old_root_add)
+    linux.pivot_root(new_root, old_root_add)
     os.chdir("/")
+    linux.umount2("/old_root", linux.MNT_DETACH)
+    os.rmdir("/old_root")
     print(f'new_root created @{new_root}')
     env = dict(os.environ)
     os.execvpe(command[0], command, env)
@@ -86,7 +89,7 @@ def run(image_name, image_dir, container_dir, command):
     # wait for the forked child, fetch the exit status
     _, status = os.waitpid(pid, 0)
     print('{} exited with status {}'.format(pid, status))
-
+    
 
 if __name__ == '__main__':
     cli()
