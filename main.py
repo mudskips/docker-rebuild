@@ -18,19 +18,23 @@ def _get_container_path(container_id, container_dir, *subdir_names):
 def create_container_root(image_name, image_dir, container_id, container_dir):
     """Create a container root by extracting an image into a new directory"""
     image_path = _get_image_path(image_name, image_dir)
-    container_root = _get_container_path(container_id, container_dir, 'rootfs')
+    shared_image_root = _get_container_path(image_name, container_dir, 'rootfs')
 
-    assert os.path.exists(image_path), "unable to locate image %s" % image_name
-
-    if not os.path.exists(container_root):
-        os.makedirs(container_root)
-    with tarfile.open(image_path) as t:
-        # Fun fact: tar files may contain *nix devices! *facepalm*
-        members = [m for m in t.getmembers()
-                   if m.type not in (tarfile.CHRTYPE, tarfile.BLKTYPE)]
-        t.extractall(container_root, members=members, filter='tar')
-
-    return container_root
+    assert os.path.exists(image_path), f"unable to locate image {image_name}"
+    if not os.path.exists(shared_image_root):
+        os.makedirs(shared_image_root)
+        with tarfile.open(image_path) as t:
+        #block potentially unwanted and/or unsafe device files
+            members = [m for m in t.getmembers() if m.type not in (tarfile.CHRTYPE, tarfile.BLKTYPE)]
+            t.extractall(shared_image_root, members=members, filter='tar')
+    upper_dir = os.path.join(container_dir, container_id, 'upper')
+    work_dir = os.path.join(container_dir, container_id, 'work')
+    merged_dir = os.path.join(container_dir, container_id, 'merged')
+    for directory in (upper_dir, work_dir, merged_dir):
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+    linux.mount('overlay', merged_dir, 'overlay', linux.MS_NODEV, f'lowerdir={shared_image_root},upperdir={upper_dir},workdir={work_dir}')
+    return merged_dir
 
 
 @click.group()
