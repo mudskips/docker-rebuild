@@ -44,9 +44,12 @@ def cli():
 
 def contain(command, image_name, image_dir, container_id, container_dir):
     new_root = create_container_root(image_name, image_dir, container_id, container_dir)
-    #create and isolate new namespace
-    new_ns = linux.CLONE_NEWNS
-    linux.unshare(new_ns)
+    #create and isolate new namespaces
+    mount_ns = linux.CLONE_NEWNS
+    uts_ns = linux.CLONE_NEWUTS
+    linux.unshare(mount_ns)
+    linux.unshare(uts_ns)
+    linux.sethostname(container_id)
     #privatize all mounts from '/'
     linux.mount(None, '/', None, linux.MS_PRIVATE | linux.MS_REC, None )
     # create mounts under new root
