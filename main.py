@@ -45,35 +45,39 @@ def cli():
 def contain(command, image_name, image_dir, container_id, container_dir):
     new_root = create_container_root(image_name, image_dir, container_id, container_dir)
     #create and isolate new namespaces
-    mount_ns = linux.CLONE_NEWNS
-    uts_ns = linux.CLONE_NEWUTS
-    linux.unshare(mount_ns)
-    linux.unshare(uts_ns)
+    linux.unshare(linux.CLONE_NEWNS)
+    linux.unshare(linux.CLONE_NEWUTS)
+    linux.unshare(linux.CLONE_NEWPID)
     linux.sethostname(container_id)
-    #privatize all mounts from '/'
-    linux.mount(None, '/', None, linux.MS_PRIVATE | linux.MS_REC, None )
-    # create mounts under new root
-    linux.mount('proc', os.path.join(new_root, 'proc'), 'proc', 0, '')
-    linux.mount('sysfs', os.path.join(new_root, "sys"), 'sysfs', 0, '')
-    linux.mount('tmpfs', os.path.join(new_root, 'dev'), 'tmpfs', linux.MS_NOSUID | linux.MS_STRICTATIME, 'mode=755')
-    devices = [('null', 1, 3), ('zero', 1, 5), ('random', 1, 8), ('urandom', 1, 9)]
-    for device, major, minor in devices:
-        os.mknod(os.path.join(new_root, 'dev', device), 0o666 | stat.S_IFCHR, os.makedev(major, minor))
-    devpts_path = os.path.join(new_root, 'dev', 'pts')
-    os.makedirs(devpts_path)
-    linux.mount('devpts', devpts_path, 'devpts', 0, '')
-    os.symlink('/proc/self/fd/0', new_root + '/dev/stdin')
-    os.symlink('/proc/self/fd/1', new_root + '/dev/stdout')
-    os.symlink('/proc/self/fd/2', new_root + '/dev/stderr')
-    old_root_add = os.path.join(new_root, "old_root")
-    os.makedirs(old_root_add)
-    linux.pivot_root(new_root, old_root_add)
-    os.chdir("/")
-    linux.umount2("/old_root", linux.MNT_DETACH)
-    os.rmdir("/old_root")
-    print(f'new_root created @{new_root}')
-    env = dict(os.environ)
-    os.execvpe(command[0], command, env)
+    pid = os.fork()
+    if pid == 0:
+        #privatize all mounts from '/'
+        linux.mount(None, '/', None, linux.MS_PRIVATE | linux.MS_REC, None )
+        # create mounts under new root
+        linux.mount('proc', os.path.join(new_root, 'proc'), 'proc', 0, '')
+        linux.mount('sysfs', os.path.join(new_root, "sys"), 'sysfs', 0, '')
+        linux.mount('tmpfs', os.path.join(new_root, 'dev'), 'tmpfs', linux.MS_NOSUID | linux.MS_STRICTATIME, 'mode=755')
+        devices = [('null', 1, 3), ('zero', 1, 5), ('random', 1, 8), ('urandom', 1, 9)]
+        for device, major, minor in devices:
+            os.mknod(os.path.join(new_root, 'dev', device), 0o666 | stat.S_IFCHR, os.makedev(major, minor))
+        devpts_path = os.path.join(new_root, 'dev', 'pts')
+        os.makedirs(devpts_path)
+        linux.mount('devpts', devpts_path, 'devpts', 0, '')
+        os.symlink('/proc/self/fd/0', new_root + '/dev/stdin')
+        os.symlink('/proc/self/fd/1', new_root + '/dev/stdout')
+        os.symlink('/proc/self/fd/2', new_root + '/dev/stderr')
+        old_root_add = os.path.join(new_root, "old_root")
+        os.makedirs(old_root_add)
+        linux.pivot_root(new_root, old_root_add)
+        os.chdir("/")
+        linux.umount2("/old_root", linux.MNT_DETACH)
+        os.rmdir("/old_root")
+        print(f'new_root created @{new_root}')
+        env = dict(os.environ)
+        os.execvpe(command[0], command, env)
+    else:
+        os.waitpid(pid, 0)
+        os._exit(0)
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True,))
