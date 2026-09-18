@@ -48,6 +48,7 @@ def contain(command, image_name, image_dir, container_id, container_dir):
     linux.unshare(linux.CLONE_NEWNS)
     linux.unshare(linux.CLONE_NEWUTS)
     linux.unshare(linux.CLONE_NEWPID)
+    linux.unshare(linux.CLONE_NEWNET)
     linux.sethostname(container_id)
     pid = os.fork()
     if pid == 0:
