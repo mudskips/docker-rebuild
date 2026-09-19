@@ -51,6 +51,7 @@ def contain(command, image_name, image_dir, container_id, container_dir):
     linux.unshare(linux.CLONE_NEWNET)
     linux.sethostname(container_id)
     pid = os.fork()
+    #seperate child
     if pid == 0:
         #privatize all mounts from '/'
         linux.mount(None, '/', None, linux.MS_PRIVATE | linux.MS_REC, None )
@@ -79,10 +80,15 @@ def contain(command, image_name, image_dir, container_id, container_dir):
 
 
     else:
+        #cgroup-ing writes happening inside the parent
         with open("/sys/fs/cgroup/cgroup.subtree_control", "w") as target:
-            target.write("+cpu")
+            target.write("+cpu +memory")
         os.mkdir(f"/sys/fs/cgroup/{container_id}")
         cpu_limit = 75
+        # in mb, gets converted later
+        mem_limit = 500
+        with open(f"/sys/fs/cgroup/{container_id}/memory.max", "w") as target:
+            target.write(str(mem_limit * 1000000))
         with open(f"/sys/fs/cgroup/{container_id}/cpu.weight", "w") as target:
             target.write(str(cpu_limit))
         with open(f"/sys/fs/cgroup/{container_id}/cgroup.procs", "w") as target:
