@@ -41,7 +41,7 @@ def create_container_root(image_name, image_dir, container_id, container_dir):
 def cli():
     pass
 
-
+#this function does pretty much all the work
 def contain(command, image_name, image_dir, container_id, container_dir):
     new_root = create_container_root(image_name, image_dir, container_id, container_dir)
     #create and isolate new namespaces
@@ -76,7 +76,17 @@ def contain(command, image_name, image_dir, container_id, container_dir):
         print(f'new_root created @{new_root}')
         env = dict(os.environ)
         os.execvpe(command[0], command, env)
+
+
     else:
+        with open("/sys/fs/cgroup/cgroup.subtree_control", "w") as target:
+            target.write("+cpu")
+        os.mkdir(f"/sys/fs/cgroup/{container_id}")
+        cpu_limit = 75
+        with open(f"/sys/fs/cgroup/{container_id}/cpu.weight", "w") as target:
+            target.write(str(cpu_limit))
+        with open(f"/sys/fs/cgroup/{container_id}/cgroup.procs", "w") as target:
+            target.write(str(pid))
         os.waitpid(pid, 0)
         os._exit(0)
 
