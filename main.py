@@ -41,8 +41,8 @@ def create_container_root(image_name, image_dir, container_id, container_dir):
 def cli():
     pass
 
-#this function does pretty much all the work
 def contain(command, image_name, image_dir, container_id, container_dir):
+    """Set up and deploy the container environment :)"""
     new_root = create_container_root(image_name, image_dir, container_id, container_dir)
     #create and isolate new namespaces
     linux.unshare(linux.CLONE_NEWNS)
@@ -51,7 +51,7 @@ def contain(command, image_name, image_dir, container_id, container_dir):
     linux.unshare(linux.CLONE_NEWNET)
     linux.sethostname(container_id)
     pid = os.fork()
-    #seperate child
+    #separate child
     if pid == 0:
         #privatize all mounts from '/'
         linux.mount(None, '/', None, linux.MS_PRIVATE | linux.MS_REC, None )
@@ -76,6 +76,11 @@ def contain(command, image_name, image_dir, container_id, container_dir):
         os.rmdir("/old_root")
         print(f'new_root created @{new_root}')
         env = dict(os.environ)
+        #this env['HOME'] just clears up complaints about permission that bash prints on run
+        env['HOME'] = '/'
+        #take away root privileges now that setup is complete
+        os.setgid(65534)
+        os.setuid(65534)
         os.execvpe(command[0], command, env)
 
 
