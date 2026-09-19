@@ -79,6 +79,7 @@ def contain(command, image_name, image_dir, container_id, container_dir):
         #this env['HOME'] just clears up complaints about permission that bash prints on run
         env['HOME'] = '/'
         #take away root privileges now that setup is complete
+        os.setgroups([])
         os.setgid(65534)
         os.setuid(65534)
         os.execvpe(command[0], command, env)
